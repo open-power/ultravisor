@@ -1,0 +1,52 @@
+# -*-Makefile-*-
+
+SVM_TEST := \
+	svm/test/run-svm-rtas-bbuf \
+	svm/test/run-svm-fdt
+
+HOSTCFLAGS+=-D__TEST__ -DBITS_PER_LONG=64
+HOSTCFLAGS+= -I . -I include -I svm -I libfdt
+
+.PHONY : svm-check
+svm-check:	$(SVM_TEST:%=%-check) \
+		$(SVM_TEST:%=%-gcov-run) \
+
+.PHONY : svm-coverage
+svm-coverage: $(SVM_TEST:%=%-gcov-run)
+
+check: svm-check
+coverage: svm-coverage
+
+$(SVM_TEST:%=%-gcov-run) : %-run: %
+	$(call QTEST, TEST-COVERAGE ,$< , $<)
+
+$(SVM_TEST:%=%-check) : %-check: %
+	$(call QTEST, RUN-TEST ,$(VALGRIND) $<, $<)
+
+SVM_TEST_STUB := svm/test/stubs.o
+
+$(SVM_TEST_STUB) : %.o : %.c
+	$(call Q, HOSTCC ,$(HOSTCC) $(HOSTCFLAGS) -O0 -g -c -o $@ $<, $<)
+
+SVM_TEST_FDT := fdt fdt_sw fdt_rw fdt_ro fdt_strerror fdt_wip
+
+$(SVM_TEST_FDT:%=svm/test/%.o) : svm/test/%.o: libfdt/%.c
+	$(call Q, HOSTCC ,$(HOSTCC) $(HOSTCFLAGS) -O0 -g -c -o $@ $<, $<)
+
+$(SVM_TEST) : $(SVM_TEST_STUB) $(SVM_TEST_FDT:%=svm/test/%.o)
+
+$(SVM_TEST) : % : %.c
+	$(call Q, HOSTCC ,$(HOSTCC) $(HOSTCFLAGS) -O0 -g -o $@ $< $(SVM_TEST_STUB) $(SVM_TEST_FDT:%=svm/test/%.o), $<)
+
+$(SVM_TEST:%=%-gcov): %-gcov : %.c %
+	$(call Q, HOSTCC ,$(HOSTCC) $(HOSTCFLAGS) $(HOSTGCOVCFLAGS) -lgcov -o $@ $< $(SVM_TEST_STUB) $(SVM_TEST_FDT:%=svm/test/%.o), $<)
+
+-include $(wildcard svm/test/*.d)
+
+clean: svm-test-clean
+
+svm-test-clean:
+	$(RM) -f svm/test/*.[od]
+	$(RM) $(SVM_TEST) $(SVM_TEST:%=%-gcov)
+	$(RM) $(SVM_TEST_DRBG) $(SVM_TEST_DRBG:%=%-gcov)
+	$(RM) -f *.gcda *.gcno

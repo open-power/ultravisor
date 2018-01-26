@@ -1,0 +1,7 @@
+
+# check: boot-check
+
+TDIR=$(SRC)/test
+
+boot-check: ultra.lid
+	$(call Q, BOOT TEST, $(TDIR)/run_mambo_boot_test.sh $(TDIR)/run_boot_test.tcl, $@)

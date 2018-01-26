@@ -1,0 +1,72 @@
+# -*-Makefile-*-
+MBEDTLS_TEST := \
+	mbedtls/test/run-mbedtls-aes \
+	mbedtls/test/run-mbedtls-gcm \
+	mbedtls/test/run-mbedtls-hmac_drbg \
+	mbedtls/test/run-mbedtls-pkcs5
+
+MBEDTLS_TEST_NOSTUB := \
+	mbedtls/test/run-mbedtls-sha256 \
+	mbedtls/test/run-mbedtls-sha512
+
+HOSTCFLAGS+=-I . -I include
+
+LCOV_EXCLUDE += $(MBEDTLS_TEST:%=%.c)
+LCOV_EXCLUDE += $(MBEDTLS_TEST_NOSTUB:%=%.c)
+
+.PHONY : mbedtls-check
+mbedtls-check:	$(MBEDTLS_TEST:%=%-check) \
+		$(MBEDTLS_TEST:%=%-gcov-run)
+mbedtls-check:  $(MBEDTLS_TEST_NOSTUB:%=%-check) \
+		$(MBEDTLS_TEST_NOSTUB:%=%-gcov-run)
+
+.PHONY : mbedtls-coverage
+mbedtls-coverage: $(MBEDTLS_TEST:%=%-gcov-run)
+mbedtls-coverage: $(MBEDTLS_TEST_NOSTUB:%=%-gcov-run)
+
+check: mbedtls-check
+coverage: mbedtls-coverage
+
+$(MBEDTLS_TEST:%=%-gcov-run) : %-run: %
+	$(call QTEST, TEST-COVERAGE ,$< , $<)
+
+$(MBEDTLS_TEST_NOSTUB:%=%-gcov-run) : %-run: %
+	$(call QTEST, TEST-COVERAGE ,$< , $<)
+
+$(MBEDTLS_TEST:%=%-check) : %-check: %
+	$(call QTEST, RUN-TEST ,$(VALGRIND) $<, $<)
+
+$(MBEDTLS_TEST_NOSTUB:%=%-check) : %-check: %
+	$(call QTEST, RUN-TEST ,$(VALGRIND) $<, $<)
+
+MBEDTLS_TEST_SHA_STUB := \
+	mbedtls/test/stub-sha1.o \
+	mbedtls/test/stub-sha256.o \
+	mbedtls/test/stub-sha512.o
+
+$(MBEDTLS_TEST_SHA_STUB) : %.o : %.c
+	$(call Q, HOSTCC ,$(HOSTCC) $(HOSTCFLAGS) -g -c -I include -I . -o $@ $<, $<)
+
+$(MBEDTLS_TEST) : $(MBEDTLS_TEST_SHA_STUB)
+
+$(MBEDTLS_TEST) : % : %.c
+	$(call Q, HOSTCC ,$(HOSTCC) $(HOSTCFLAGS) -O0 -g -I include -I . -o $@ $< $(MBEDTLS_TEST_SHA_STUB), $<)
+
+$(MBEDTLS_TEST_NOSTUB) : % : %.c
+	$(call Q, HOSTCC ,$(HOSTCC) $(HOSTCFLAGS) -O0 -g -I include -I . -o $@ $<, $<)
+
+$(MBEDTLS_TEST:%=%-gcov): %-gcov : %.c %
+	$(call Q, HOSTCC ,$(HOSTCC) $(HOSTCFLAGS) $(HOSTGCOVCFLAGS) -I include -I . -lgcov -o $@ $< $(MBEDTLS_TEST_SHA_STUB), $<)
+
+$(MBEDTLS_TEST_NOSTUB:%=%-gcov): %-gcov : %.c %
+	$(call Q, HOSTCC ,$(HOSTCC) $(HOSTCFLAGS) $(HOSTGCOVCFLAGS) -I include -I . -lgcov -o $@ $<, $<)
+
+-include $(wildcard mbedtls/test/*.d)
+
+clean: mbedtls-test-clean
+
+mbedtls-test-clean:
+	$(RM) -f mbedtls/test/*.[od]
+	$(RM) -f $(MBEDTLS_TEST) $(MBEDTLS_TEST:%=%-gcov)
+	$(RM) -f $(MBEDTLS_TEST_NOSTUB) $(MBEDTLS_TEST_NOSTUB:%=%-gcov)
+	$(RM) -f *.gcda *.gcno

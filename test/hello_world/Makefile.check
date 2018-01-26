@@ -1,0 +1,29 @@
+TDIR=$(SRC)/test
+
+HELLO_WORLD_TEST := $(TDIR)/hello_world/hello_ultra/hello_ultra
+
+.PHONY: hello_world-tests
+
+hello_world-tests: $(HELLO_WORLD_TEST:%=%-check-mambo)
+
+boot-tests: hello_world-tests
+#check: hello_world-tests
+
+$(HELLO_WORLD_TEST:%=%-check-mambo): %-check-mambo: % ultra.lid
+	$(call Q , BOOT TEST , $(TDIR)/hello_world/run_mambo_hello_world.sh --smf $<, $@)
+
+test/hello_world/hello_ultra/hello_ultra.o: test/hello_world/hello_ultra/hello_ultra.S test/hello_world/hello_ultra/hello_ultra.ld
+	$(call Q,CC, $(CC) -m64 -c -MMD -o $@ $< ,$@)
+
+hello_world_LDFLAGS=-m64 -Wl,--build-id=none -T test/hello_world/hello_ultra/hello_ultra.ld -ffreestanding -nostdlib -Ttext=0x0 -N 
+
+-include $(wildcard test/hello_world/hello_ultra/*.d)
+
+test/hello_world/hello_ultra/hello_ultra: test/hello_world/hello_ultra/hello_ultra.o
+	$(call Q,LD, $(CC) $(hello_world_LDFLAGS) -o $@ $^ , $@)
+
+clean: hello_world-test-clean
+
+hello_world-test-clean:
+	$(RM) -f test/hello_world/hello_ultra/hello_ultra
+	$(RM) -f test/hello_world/hello_ultra/hello_ultra.[od]
