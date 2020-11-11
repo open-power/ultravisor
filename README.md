@@ -1,7 +1,12 @@
 # Ultravisor 
 
-This tree contains code to support Ultravisor capability on capable Power
-processors.
+Firmware for OpenPower systems.
+
+Source: https://github.com/open-power/ultravisor
+
+Mailing list: skiboot@lists.ozlabs.org
+
+Info/subscribe: https://lists.ozlabs.org/listinfo/linuxppc-uv
 
 ## Building
 
