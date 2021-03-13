@@ -295,7 +295,9 @@ static void fixup_regs_for_hv_entry(struct refl_state *r_state)
 	 * H_CEDE as that would result in the guest not running again
 	 * until the decrementer fires (about 4 seconds at 512MHz).
 	 */
-	if (hvf->gpr[3] != H_CEDE)
+	if (hvf->gpr[3] == H_CEDE)
+		hvf->dec = excpf->dec;
+	else
 		hvf->dec = 0x7FFFFFFF;
 
 	/*
